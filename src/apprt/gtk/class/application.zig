@@ -1105,19 +1105,19 @@ pub const Application = extern struct {
         self.syncActionAccelerator("win.new-tab", .{ .new_tab = {} });
         self.syncActionAccelerator("win.close-tab::this", .{ .close_tab = .this });
         self.syncActionAccelerator("tab.close::this", .{ .close_tab = .this });
-        self.syncActionAccelerator("win.split-right", .{ .new_split = .right });
-        self.syncActionAccelerator("win.split-down", .{ .new_split = .down });
-        self.syncActionAccelerator("win.split-left", .{ .new_split = .left });
-        self.syncActionAccelerator("win.split-up", .{ .new_split = .up });
+        self.syncActionAccelerator("win.split-right", .{ .new_split = .{ .right, .{ .percentage = 50 } } });
+        self.syncActionAccelerator("win.split-down", .{ .new_split = .{ .down, .{ .percentage = 50 } } });
+        self.syncActionAccelerator("win.split-left", .{ .new_split = .{ .left, .{ .percentage = 50 } } });
+        self.syncActionAccelerator("win.split-up", .{ .new_split = .{ .up, .{ .percentage = 50 } } });
         self.syncActionAccelerator("win.copy", .{ .copy_to_clipboard = {} });
         self.syncActionAccelerator("win.paste", .{ .paste_from_clipboard = {} });
         self.syncActionAccelerator("win.reset", .{ .reset = {} });
         self.syncActionAccelerator("win.clear", .{ .clear_screen = {} });
         self.syncActionAccelerator("win.prompt-title", .{ .prompt_surface_title = {} });
-        self.syncActionAccelerator("split-tree.new-split::left", .{ .new_split = .left });
-        self.syncActionAccelerator("split-tree.new-split::right", .{ .new_split = .right });
-        self.syncActionAccelerator("split-tree.new-split::up", .{ .new_split = .up });
-        self.syncActionAccelerator("split-tree.new-split::down", .{ .new_split = .down });
+        self.syncActionAccelerator("split-tree.new-split::left", .{ .new_split = .{ .left, .{ .percentage = 50 } } });
+        self.syncActionAccelerator("split-tree.new-split::right", .{ .new_split = .{ .right, .{ .percentage = 50 } } });
+        self.syncActionAccelerator("split-tree.new-split::up", .{ .new_split = .{ .up, .{ .percentage = 50 } } });
+        self.syncActionAccelerator("split-tree.new-split::down", .{ .new_split = .{ .down, .{ .percentage = 50 } } });
     }
 
     fn syncActionAccelerator(
@@ -2066,7 +2066,7 @@ const Action = struct {
 
     pub fn newSplit(
         target: apprt.Target,
-        direction: apprt.action.SplitDirection,
+        direction_amount: apprt.action.SplitDirectionAmount,
     ) bool {
         switch (target) {
             .app => {
@@ -2080,7 +2080,7 @@ const Action = struct {
                 return surface.as(gtk.Widget).activateAction(
                     "split-tree.new-split",
                     "&s",
-                    @tagName(direction).ptr,
+                    @tagName(direction_amount.direction).ptr,
                 ) != 0;
             },
         }

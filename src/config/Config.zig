@@ -5817,12 +5817,12 @@ pub const Keybinds = struct {
             try self.set.put(
                 alloc,
                 .{ .key = .{ .unicode = 'o' }, .mods = .{ .ctrl = true, .shift = true } },
-                .{ .new_split = .right },
+                .{ .new_split = .{ .right, .{ .percentage = 50 } } },
             );
             try self.set.put(
                 alloc,
                 .{ .key = .{ .unicode = 'e' }, .mods = .{ .ctrl = true, .shift = true } },
-                .{ .new_split = .down },
+                .{ .new_split = .{ .down, .{ .percentage = 50 } } },
             );
             try self.set.putFlags(
                 alloc,
@@ -6149,12 +6149,12 @@ pub const Keybinds = struct {
             try self.set.put(
                 alloc,
                 .{ .key = .{ .unicode = 'd' }, .mods = .{ .super = true } },
-                .{ .new_split = .right },
+                .{ .new_split = .{ .right, .{ .percentage = 50 } } },
             );
             try self.set.put(
                 alloc,
                 .{ .key = .{ .unicode = 'd' }, .mods = .{ .super = true, .shift = true } },
-                .{ .new_split = .down },
+                .{ .new_split = .{ .down, .{ .percentage = 50 } } },
             );
             try self.set.put(
                 alloc,

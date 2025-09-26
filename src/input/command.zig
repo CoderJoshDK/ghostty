@@ -286,22 +286,22 @@ fn actionCommands(action: Action.Key) []const Command {
 
         .new_split => comptime &.{
             .{
-                .action = .{ .new_split = .left },
+                .action = .{ .new_split = .{ .left, .{ .percentage = 50 } } },
                 .title = "Split Left",
                 .description = "Split the terminal to the left.",
             },
             .{
-                .action = .{ .new_split = .right },
+                .action = .{ .new_split = .{ .right, .{ .percentage = 50 } } },
                 .title = "Split Right",
                 .description = "Split the terminal to the right.",
             },
             .{
-                .action = .{ .new_split = .up },
+                .action = .{ .new_split = .{ .up, .{ .percentage = 50 } } },
                 .title = "Split Up",
                 .description = "Split the terminal up.",
             },
             .{
-                .action = .{ .new_split = .down },
+                .action = .{ .new_split = .{ .down, .{ .percentage = 50 } } },
                 .title = "Split Down",
                 .description = "Split the terminal down.",
             },

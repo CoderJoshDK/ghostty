@@ -1769,7 +1769,7 @@ pub const Window = extern struct {
         _: ?*glib.Variant,
         self: *Window,
     ) callconv(.c) void {
-        self.performBindingAction(.{ .new_split = .right });
+        self.performBindingAction(.{ .new_split = .{ .right, .{ .percentage = 50 } } });
     }
 
     fn actionSplitLeft(
@@ -1777,7 +1777,7 @@ pub const Window = extern struct {
         _: ?*glib.Variant,
         self: *Window,
     ) callconv(.c) void {
-        self.performBindingAction(.{ .new_split = .left });
+        self.performBindingAction(.{ .new_split = .{ .left, .{ .percentage = 50 } } });
     }
 
     fn actionSplitUp(
@@ -1785,7 +1785,7 @@ pub const Window = extern struct {
         _: ?*glib.Variant,
         self: *Window,
     ) callconv(.c) void {
-        self.performBindingAction(.{ .new_split = .up });
+        self.performBindingAction(.{ .new_split = .{ .up, .{ .percentage = 50 } } });
     }
 
     fn actionSplitDown(
@@ -1793,7 +1793,7 @@ pub const Window = extern struct {
         _: ?*glib.Variant,
         self: *Window,
     ) callconv(.c) void {
-        self.performBindingAction(.{ .new_split = .down });
+        self.performBindingAction(.{ .new_split = .{ .down, .{ .percentage = 50 } } });
     }
 
     fn actionCopy(
