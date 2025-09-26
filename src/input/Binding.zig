@@ -510,7 +510,7 @@ pub const Action = union(enum) {
     ///     For example, if the parent split is currently wider than it is tall,
     ///     then a left-right split would be created, and vice versa.
     ///
-    new_split: SplitDirection,
+    new_split: SplitDirectionAmount,
 
     /// Focus on a split either in the specified direction (`right`, `down`,
     /// `left` and `up`), or in the adjacent split in the order of creation
@@ -821,6 +821,50 @@ pub const Action = union(enum) {
         pub const default: SplitDirection = .auto;
     };
 
+    pub const SplitAmount = union(enum) {
+        percentage: u8,
+
+        pub const default: SplitAmount = .{ .percentage = 50 };
+
+        pub fn parse(input: []const u8) !SplitAmount {
+            if (input.len == 0) return Error.InvalidFormat;
+
+            if (std.mem.endsWith(u8, input, "%")) {
+                const percentage = parseInt(
+                    u8,
+                    input[0 .. input.len - "%".len],
+                ) catch return Error.InvalidFormat;
+
+                if (percentage < 0) return Error.InvalidFormat;
+                return .{ .percentage = percentage };
+            }
+            return Error.InvalidFormat;
+        }
+
+        fn format(self: SplitAmount, writer: anytype) !void {
+            switch (self) {
+                .percentage => |v| try writer.print("{d}%", .{v}),
+            }
+        }
+
+        test "parse" {
+            const testing = std.testing;
+
+            try testing.expectEqual(SplitAmount{ .percentage = 50 }, try SplitAmount.parse("50%"));
+            try testing.expectEqual(SplitAmount{ .percentage = 100 }, try SplitAmount.parse("100%"));
+
+            try testing.expectError(error.InvalidFormat, SplitAmount.parse(""));
+            try testing.expectError(error.InvalidFormat, SplitAmount.parse("green"));
+            try testing.expectError(error.InvalidFormat, SplitAmount.parse("50"));
+            try testing.expectError(error.InvalidFormat, SplitAmount.parse("-30%"));
+        }
+    };
+
+    pub const SplitDirectionAmount = struct {
+        SplitDirection,
+        SplitAmount,
+    };
+
     pub const SplitFocusDirection = enum {
         previous,
         next,
@@ -935,14 +979,31 @@ pub const Action = union(enum) {
 
                 var it = std.mem.splitAny(u8, param, ",");
                 var value: field.type = undefined;
-                inline for (info.fields) |field_| {
-                    const next = it.next() orelse return Error.InvalidFormat;
-                    @field(value, field_.name) = switch (@typeInfo(field_.type)) {
-                        .@"enum" => try parseEnum(field_.type, next),
-                        .int => try parseInt(field_.type, next),
-                        .float => try parseFloat(field_.type, next),
-                        else => unreachable,
-                    };
+                inline for (info.fields) |struct_field| {
+                    const struct_field_info = @typeInfo(struct_field.type);
+                    const next = it.next();
+                    if (next == null or std.mem.eql(u8, next.?, "")) {
+                        if ((struct_field_info == .@"struct" or
+                            struct_field_info == .@"union" or
+                            struct_field_info == .@"enum") and @hasDecl(struct_field.type, "default"))
+                        {
+                            @field(value, struct_field.name) = struct_field.type.default;
+                        } else return Error.InvalidFormat;
+                    } else {
+                        // Allow for struct of structs
+                        if ((struct_field_info == .@"struct" or
+                            struct_field_info == .@"union" or
+                            struct_field_info == .@"enum") and @hasDecl(struct_field.type, "parse") and
+                            @typeInfo(@TypeOf(struct_field.type.parse)) == .@"fn")
+                        {
+                            @field(value, struct_field.name) = try struct_field.type.parse(next.?);
+                        } else @field(value, struct_field.name) = switch (@typeInfo(struct_field.type)) {
+                            .@"enum" => try parseEnum(struct_field.type, next.?),
+                            .int => try parseInt(struct_field.type, next.?),
+                            .float => try parseFloat(struct_field.type, next.?),
+                            else => unreachable,
+                        };
+                    }
                 }
 
                 // If we have extra parameters it is an error
@@ -993,7 +1054,6 @@ pub const Action = union(enum) {
                         // "default" decl.
                         const idx = colonIdx orelse {
                             switch (@typeInfo(field.type)) {
-                                .@"struct",
                                 .@"union",
                                 .@"enum",
                                 => if (@hasDecl(field.type, "default")) {
@@ -1002,6 +1062,28 @@ pub const Action = union(enum) {
                                         field.name,
                                         @field(field.type, "default"),
                                     );
+                                },
+                                .@"struct",
+                                => |info| {
+                                    if (@hasDecl(field.type, "default")) {
+                                        return @unionInit(
+                                            Action,
+                                            field.name,
+                                            @field(field.type, "default"),
+                                        );
+                                    }
+                                    if (info.is_tuple) {
+                                        inline for (info.fields) |struct_field| {
+                                            if (!@hasDecl(struct_field.type, "default"))
+                                                // Only valid if all tuple values have a default
+                                                return Error.InvalidFormat;
+                                        }
+                                        return @unionInit(
+                                            Action,
+                                            field.name,
+                                            try parseParameter(field, input[field.name.len..]),
+                                        );
+                                    }
                                 },
 
                                 else => {},
@@ -1221,6 +1303,13 @@ pub const Action = union(enum) {
                         try formatValue(writer, @field(value, field.name));
                         if (i + 1 < info.fields.len) try writer.writeAll(",");
                     }
+                },
+                .@"union" => {
+                    if (!@hasDecl(Value, "format") or
+                        @typeInfo(@TypeOf(Value.format)) != .@"fn")
+                        @compileError("union must have format function");
+
+                    try value.format(writer);
                 },
                 else => @compileError("unhandled type: " ++ @typeName(Value)),
             },
@@ -2567,9 +2656,9 @@ test "parse: action with enum" {
 
     // parameter
     {
-        const binding = try parseSingle("a=new_split:right");
-        try testing.expect(binding.action == .new_split);
-        try testing.expectEqual(Action.SplitDirection.right, binding.action.new_split);
+        const binding = try parseSingle("a=close_tab:other");
+        try testing.expect(binding.action == .close_tab);
+        try testing.expectEqual(Action.CloseTabMode.other, binding.action.close_tab);
     }
 }
 
@@ -2578,9 +2667,40 @@ test "parse: action with enum with default" {
 
     // parameter
     {
+        const binding = try parseSingle("a=close_tab");
+        try testing.expect(binding.action == .close_tab);
+        try testing.expectEqual(Action.CloseTabMode.default, binding.action.close_tab);
+    }
+}
+
+test "parse: action with multiple defaults" {
+    const testing = std.testing;
+
+    // parameter
+    {
         const binding = try parseSingle("a=new_split");
         try testing.expect(binding.action == .new_split);
-        try testing.expectEqual(Action.SplitDirection.auto, binding.action.new_split);
+        try testing.expectEqual(Action.SplitDirection.auto, binding.action.new_split[0]);
+        try testing.expectEqual(Action.SplitDirection.default, binding.action.new_split[0]);
+        try testing.expectEqual(Action.SplitAmount.default, binding.action.new_split[1]);
+    }
+    {
+        const binding = try parseSingle("a=new_split:left");
+        try testing.expect(binding.action == .new_split);
+        try testing.expectEqual(Action.SplitDirection.left, binding.action.new_split[0]);
+        try testing.expectEqual(Action.SplitAmount.default, binding.action.new_split[1]);
+    }
+}
+
+test "parse: complex tuple" {
+    const testing = std.testing;
+
+    // parameter
+    {
+        const binding = try parseSingle("a=new_split:left,30%");
+        try testing.expect(binding.action == .new_split);
+        try testing.expectEqual(Action.SplitDirection.left, binding.action.new_split[0]);
+        try testing.expectEqual(Action.SplitAmount{ .percentage = 30 }, binding.action.new_split[1]);
     }
 }
 
